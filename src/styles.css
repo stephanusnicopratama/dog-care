@@ -125,8 +125,85 @@ body,
   background: #ef4444;
 }
 
-.action-row {
+.task-queue {
+  list-style: none;
+  margin: 0 auto 0.5rem;
+  padding: 0.35rem;
+  width: min(280px, 92vw);
+  background: #fffdf8;
+  border: 2px solid #0f172a;
+  border-radius: 12px;
+  box-shadow: 3px 4px 0 #0f172a;
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.35rem;
+}
+
+.task-row.active {
+  background: #e0f2fe;
+  border-radius: 8px;
+}
+
+.task-icon {
+  width: 1.4rem;
+  text-align: center;
+}
+
+.task-copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.task-label {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.task-progress {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.task-progress > span {
+  display: block;
+  height: 100%;
+  background: #0284c7;
+}
+
+.task-cancel {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #64748b;
+  padding: 0.15rem 0.35rem;
+}
+
+.task-cancel:hover {
+  color: #b91c1c;
+}
+
+.bottom-dock {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.action-row {
+  margin-top: 0;
+  width: 100%;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
