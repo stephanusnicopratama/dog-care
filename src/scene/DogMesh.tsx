@@ -8,7 +8,8 @@ import { useGameStore } from '../store/gameStore'
 import type { ActionType, NeedKey } from '../types'
 import { DogModel, poseFromAction } from './dog/DogModel'
 import { PropClickable } from './PropClickable'
-import { YARD_TARGETS } from './yardLayout'
+import { playBallPos } from './playBall'
+import { PROP_POSITIONS, YARD_TARGETS } from './yardLayout'
 
 const NEED_CUE: Record<NeedKey, string> = {
   hunger: '🍖',
@@ -50,11 +51,30 @@ export function DogMesh() {
     const g = group.current
     if (!g) return
 
-    if (asking) {
+    if (asking || currentAction === 'pet') {
       movingRef.current = false
       const dx = state.camera.position.x - g.position.x
       const dz = state.camera.position.z - g.position.z
+      if (currentAction === 'pet') {
+        const tx = YARD_TARGETS.pet?.[0] ?? 0
+        const tz = YARD_TARGETS.pet?.[2] ?? 0
+        g.position.x += (tx - g.position.x) * Math.min(1, delta * 2)
+        g.position.z += (tz - g.position.z) * Math.min(1, delta * 2)
+      }
       g.rotation.y = Math.atan2(dx, dz)
+      return
+    }
+
+    if (currentAction === 'play') {
+      const dx = playBallPos.x - g.position.x
+      const dz = playBallPos.z - g.position.z
+      const dist = Math.hypot(dx, dz)
+      movingRef.current = dist > 0.7
+      if (dist > 0.65) {
+        g.position.x += dx * Math.min(1, delta * 4.8)
+        g.position.z += dz * Math.min(1, delta * 4.8)
+      }
+      if (dist > 0.05) g.rotation.y = Math.atan2(dx, dz)
       return
     }
 
@@ -65,11 +85,23 @@ export function DogMesh() {
     const speed = currentAction ? 3.8 : 1.25
     const dx = target[0] - g.position.x
     const dz = target[2] - g.position.z
-    movingRef.current = Math.hypot(dx, dz) > 0.12 && currentAction !== 'pet' && !isSleeping
+    const dist = Math.hypot(dx, dz)
+    movingRef.current = dist > 0.12 && !isSleeping
 
     g.position.x += dx * Math.min(1, delta * speed)
     g.position.z += dz * Math.min(1, delta * speed)
-    if (Math.abs(dx) + Math.abs(dz) > 0.05) g.rotation.y = Math.atan2(dx, dz)
+
+    const face =
+      currentAction === 'feed'
+        ? PROP_POSITIONS.foodBowl
+        : currentAction === 'water'
+          ? PROP_POSITIONS.waterBowl
+          : null
+    if (face && dist < 0.35) {
+      g.rotation.y = Math.atan2(face[0] - g.position.x, face[2] - g.position.z)
+    } else if (Math.abs(dx) + Math.abs(dz) > 0.05) {
+      g.rotation.y = Math.atan2(dx, dz)
+    }
   })
 
   return (

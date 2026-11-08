@@ -4,7 +4,7 @@ import type { Group, Mesh } from 'three'
 import * as THREE from 'three'
 import type { ActionType, NeedKey } from '../../types'
 
-export type DogPose = 'idle' | 'sleep' | 'eat' | 'drink' | 'play' | 'happy'
+export type DogPose = 'idle' | 'sleep' | 'eat' | 'drink' | 'play' | 'happy' | 'bathe'
 
 const FUR = { roughness: 0.72, metalness: 0 }
 
@@ -69,7 +69,7 @@ export function DogModel({
     const cue = pose === 'idle' ? needCue : null
     const pace = asking ? 1.6 : 1
 
-    const swing = moving ? 0.45 : cue === 'energy' ? 0.02 : 0.04
+    const swing = pose === 'play' ? 0.62 : moving ? 0.45 : cue === 'energy' ? 0.02 : 0.04
     legs[0].current?.rotation.set(Math.sin(phase) * swing, 0, 0)
     legs[3].current?.rotation.set(Math.sin(phase) * swing, 0, 0)
     legs[1].current?.rotation.set(Math.sin(phase + Math.PI) * swing, 0, 0)
@@ -83,7 +83,25 @@ export function DogModel({
     let bodyZ = 0
     let eyeY = Math.sin(t * 0.35) > 0.97 || pose === 'sleep' ? 0.15 : 1
 
-    if (pose === 'eat' || pose === 'drink') headX = 0.55
+    if (pose === 'eat') headX = 0.72 + Math.sin(t * 9) * 0.14
+    if (pose === 'drink') headX = 0.62 + Math.sin(t * 6) * 0.06
+    if (pose === 'play') {
+      headX = playLookDown(t)
+      bodyY = Math.abs(Math.sin(t * 8)) * 0.12
+      tailWag = 0.85
+      tailSpeed = 16
+    }
+    if (pose === 'happy') {
+      headX = -0.5
+      bodyY = Math.abs(Math.sin(t * 7)) * 0.07
+      tailWag = 0.8
+      tailSpeed = 12
+    }
+    if (pose === 'bathe') {
+      headY = Math.sin(t * 4) * 0.4
+      bodyY = 0.04 + Math.sin(t * 9) * 0.03
+      bodyZ = Math.sin(t * 14) * 0.18
+    }
 
     if (cue === 'hunger') {
       headX = 0.5 + Math.sin(t * 2.5 * pace) * 0.1
@@ -201,11 +219,16 @@ export function DogModel({
   )
 }
 
+function playLookDown(t: number): number {
+  return 0.35 + Math.sin(t * 7) * 0.2
+}
+
 export function poseFromAction(action: ActionType | null, sleeping: boolean): DogPose {
   if (sleeping) return 'sleep'
   if (action === 'feed') return 'eat'
   if (action === 'water') return 'drink'
   if (action === 'play') return 'play'
   if (action === 'pet') return 'happy'
+  if (action === 'bathe') return 'bathe'
   return 'idle'
 }

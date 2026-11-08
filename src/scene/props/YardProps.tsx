@@ -1,7 +1,11 @@
-import { useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { useMemo, useRef } from 'react'
+import type { Group } from 'three'
+import { useGameStore } from '../../store/gameStore'
+import { playBallPos } from '../playBall'
 import { PALETTE } from '../materials'
 import { PROP_POSITIONS } from '../yardLayout'
-import { PropClickable } from '../PropClickable'
+import { hideInteractionSoon, PropClickable, showInteraction } from '../PropClickable'
 
 export function YardGround({ evening }: { evening: boolean }) {
   return (
@@ -127,18 +131,55 @@ export function DogBedProp() {
 }
 
 export function TennisBallProp() {
-  const [x, , z] = PROP_POSITIONS.ball
+  const group = useRef<Group>(null)
+  const playing = useGameStore((s) => s.currentAction === 'play')
+  const [homeX, , homeZ] = PROP_POSITIONS.ball
+
+  useFrame((state) => {
+    const g = group.current
+    if (!g) return
+    if (!playing) {
+      g.position.set(homeX, 0.14, homeZ)
+      g.rotation.set(0, 0, 0)
+      playBallPos.set(homeX, 0.14, homeZ)
+      return
+    }
+    const t = state.clock.elapsedTime
+    const x = Math.sin(t * 2.1) * 1.8
+    const z = 0.4 + Math.cos(t * 1.55) * 1.5
+    const y = 0.14 + Math.abs(Math.sin(t * 7)) * 0.7
+    g.position.set(x, y, z)
+    g.rotation.x = t * 9
+    playBallPos.set(x, y, z)
+  })
+
   return (
-    <PropClickable id="ball" title="Ball" actions={['play']} position={[x, 0, z]}>
-      <mesh position={[0, 0.14, 0]} castShadow>
-        <sphereGeometry args={[0.16, 20, 16]} />
+    <group
+      ref={group}
+      onPointerOver={(e) => {
+        e.stopPropagation()
+        document.body.style.cursor = 'pointer'
+        showInteraction({ id: 'ball', title: 'Ball', actions: ['play'], x: e.nativeEvent.clientX, y: e.nativeEvent.clientY })
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = 'default'
+        hideInteractionSoon()
+      }}
+      onClick={(e) => {
+        e.stopPropagation()
+        showInteraction({ id: 'ball', title: 'Ball', actions: ['play'], x: e.nativeEvent.clientX, y: e.nativeEvent.clientY })
+        useGameStore.getState().pinMenu(true)
+      }}
+    >
+      <mesh castShadow>
+        <sphereGeometry args={[0.2, 20, 16]} />
         <meshStandardMaterial color={PALETTE.ball} roughness={0.55} />
       </mesh>
-      <mesh position={[0, 0.14, 0.155]} rotation={[0, 0, 0]}>
-        <torusGeometry args={[0.155, 0.012, 8, 24, Math.PI]} />
+      <mesh position={[0, 0, 0.19]}>
+        <torusGeometry args={[0.19, 0.014, 8, 24, Math.PI]} />
         <meshStandardMaterial color={PALETTE.ballStripe} />
       </mesh>
-    </PropClickable>
+    </group>
   )
 }
 

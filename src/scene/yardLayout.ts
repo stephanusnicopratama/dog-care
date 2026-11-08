@@ -1,8 +1,8 @@
 import type { ActionType } from '../types'
 
 export const YARD_TARGETS: Partial<Record<ActionType, [number, number, number]>> = {
-  feed: [-2.4, 0, 2.0],
-  water: [-2.4, 0, 0.6],
+  feed: [-1.7, 0, 1.35],
+  water: [-1.7, 0, 0.15],
   play: [1.4, 0, 2.2],
   bathe: [-3.6, 0, -2.2],
   sleep: [2.6, 0, -1.6],
