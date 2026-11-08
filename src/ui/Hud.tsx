@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ACTION_CONFIG, COAT_SWATCHES, MOOD_ASKING } from '../config/simulation'
+import { ACTION_CONFIG, COAT_SWATCHES, MOOD_ASKING, WHIM_MS } from '../config/simulation'
 import { useActionTimer, useSimulation } from '../hooks/useSimulation'
 import { getMood, lowestNeed } from '../lib/mood'
 import { formatGameClock } from '../lib/time'
@@ -40,6 +40,9 @@ export function Hud() {
   const needs = useGameStore((s) => s.needs)
   const gameMinute = useGameStore((s) => s.gameMinute)
   const happyDays = useGameStore((s) => s.happyDays)
+  const joys = useGameStore((s) => s.joys)
+  const whim = useGameStore((s) => s.whim)
+  const praise = useGameStore((s) => s.praise)
   const currentAction = useGameStore((s) => s.currentAction)
   const actionQueue = useGameStore((s) => s.actionQueue)
   const actionEndsAt = useGameStore((s) => s.actionEndsAt)
@@ -76,8 +79,11 @@ export function Hud() {
         </button>
         <span className="clock">{formatGameClock(gameMinute)}</span>
         <span className={`mood-chip mood-${mood}`}>{mood}</span>
+        {joys > 0 && <span className="happy-day">♥ {joys}</span>}
         {happyDays > 0 && <span className="happy-day">★ Happy days: {happyDays}</span>}
       </header>
+      {whim && <WhimBanner until={whim.until} action={whim.action} />}
+      {praise && <div className="praise">{praise}</div>}
 
       <div className="need-panel">
         {(Object.keys(NEED_LABELS) as NeedKey[]).map((key) => (
@@ -101,6 +107,7 @@ export function Hud() {
       )}
 
       <div className="bottom-dock">
+      {currentAction === 'play' && <p className="play-hint">Click the grass to throw</p>}
       {(currentAction || actionQueue.length > 0) && (
         <TaskQueue
           currentAction={currentAction}
@@ -116,7 +123,7 @@ export function Hud() {
           <button
             key={action}
             type="button"
-            className="action-btn"
+            className={`action-btn${whim?.action === action ? ' wanted' : ''}`}
             disabled={queueFull}
             onClick={() => onAction(action)}
           >
@@ -208,6 +215,26 @@ function DogPanel({
           Done
         </button>
       </div>
+    </div>
+  )
+}
+
+function WhimBanner({ action, until }: { action: ActionType; until: number }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 200)
+    return () => window.clearInterval(id)
+  }, [until])
+  const left = Math.max(0, until - now)
+  const meta = ACTION_META[action]
+  return (
+    <div className="whim">
+      <span>
+        Wants {meta.icon} {meta.label}
+      </span>
+      <span className="whim-time">
+        <span style={{ width: `${(left / WHIM_MS) * 100}%` }} />
+      </span>
     </div>
   )
 }

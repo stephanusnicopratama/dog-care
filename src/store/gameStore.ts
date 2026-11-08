@@ -2,11 +2,16 @@ import { create } from 'zustand'
 import {
   ACTION_CONFIG,
   DRAIN_PER_MINUTE,
+  FETCH_FUN,
   MINUTES_PER_DAY,
+  NEED_ACTION,
   NEED_KEYS,
   PLAY_CLEANLINESS_PENALTY,
   SLEEP_ENERGY_RESTORE_PER_MINUTE,
+  WHIM_BONUS,
+  WHIM_MS,
 } from '../config/simulation'
+import { lowestNeed } from '../lib/mood'
 import { loadSave, persistSave } from '../lib/persistence'
 import type { ActionType, Dog, Needs, SaveData } from '../types'
 
@@ -24,6 +29,18 @@ export interface QueuedAction {
 }
 
 export const MAX_QUEUED = 6
+
+export interface Whim {
+  action: ActionType
+  until: number
+}
+
+function flashPraise(text: string) {
+  useGameStore.setState({ praise: text })
+  window.setTimeout(() => {
+    if (useGameStore.getState().praise === text) useGameStore.setState({ praise: null })
+  }, 1200)
+}
 
 function clampNeed(n: number): number {
   return Math.max(0, Math.min(100, n))
@@ -43,6 +60,10 @@ interface GameState {
   dogPanelOpen: boolean
   hoverTarget: InteractionTarget | null
   menuPinned: boolean
+  whim: Whim | null
+  delightUntil: number
+  praise: string | null
+  joys: number
 
   hydrate: () => void
   save: () => void
@@ -60,6 +81,8 @@ interface GameState {
   setHoverTarget: (target: InteractionTarget | null) => void
   pinMenu: (pinned: boolean) => void
   closeInteraction: () => void
+  ensureWhim: () => void
+  noteFetch: () => void
 }
 
 function snapshot(state: GameState): SaveData {
@@ -71,6 +94,7 @@ function snapshot(state: GameState): SaveData {
     isSleeping: state.isSleeping,
     happyDays: state.happyDays,
     comfortableMinutesToday: state.comfortableMinutesToday,
+    joys: state.joys,
   }
 }
 
@@ -120,6 +144,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   dogPanelOpen: false,
   hoverTarget: null,
   menuPinned: false,
+  whim: null,
+  delightUntil: 0,
+  praise: null,
 
   hydrate: () => set({ ...loadSave(), currentAction: null, actionEndsAt: null, actionQueue: [] }),
 
@@ -187,6 +214,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       nextNeeds.cleanliness = clampNeed(nextNeeds.cleanliness - PLAY_CLEANLINESS_PENALTY)
     }
 
+    const whim = get().whim
+    const matched = whim != null && whim.action === currentAction && Date.now() < whim.until
+    if (matched) {
+      for (const key of Object.keys(config.recovery) as (keyof Needs)[]) {
+        nextNeeds[key] = clampNeed(nextNeeds[key] + WHIM_BONUS)
+      }
+    }
+
     let nextSleeping = isSleeping
     if (currentAction === 'sleep') {
       nextSleeping = nextNeeds.energy < 85
@@ -199,7 +234,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentAction: null,
       actionEndsAt: null,
       isSleeping: nextSleeping,
+      whim: matched ? null : get().whim,
+      delightUntil: matched ? Date.now() + 1600 : get().delightUntil,
+      praise: matched ? 'Yes!' : null,
+      joys: get().joys + (matched ? 1 : 0),
     })
+    if (matched) flashPraise('Yes!')
 
     promoteQueue(set, get)
     get().save()
@@ -222,6 +262,26 @@ export const useGameStore = create<GameState>((set, get) => ({
   pinMenu: (pinned) => set({ menuPinned: pinned }),
 
   closeInteraction: () => set({ hoverTarget: null, menuPinned: false }),
+
+  ensureWhim: () => {
+    const { whim, isSleeping, needs } = get()
+    if (isSleeping) return
+    if (whim && Date.now() < whim.until) return
+    const urgent = lowestNeed(needs)
+    const focused = needs[urgent] < 80
+    const pool: ActionType[] = focused
+      ? [NEED_ACTION[urgent]]
+      : (Object.keys(ACTION_CONFIG) as ActionType[])
+    const action = pool[Math.floor(Math.random() * pool.length)]
+    set({ whim: { action, until: Date.now() + WHIM_MS } })
+  },
+
+  noteFetch: () => {
+    if (get().currentAction !== 'play') return
+    const needs = { ...get().needs, fun: clampNeed(get().needs.fun + FETCH_FUN) }
+    set({ needs, delightUntil: Date.now() + 700 })
+    flashPraise('Fetch!')
+  },
 
   tickMinute: () => {
     const state = get()

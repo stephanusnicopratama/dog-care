@@ -24,6 +24,7 @@ export function createNewSave(): SaveData {
     isSleeping: false,
     happyDays: 0,
     comfortableMinutesToday: 0,
+    joys: 0,
   }
 }
 
@@ -35,7 +36,7 @@ export function loadSave(): SaveData {
     if (parsed.version !== 1 || !parsed.dog || !parsed.needs) {
       return createNewSave()
     }
-    return parsed
+    return { ...parsed, joys: parsed.joys ?? 0 }
   } catch {
     return createNewSave()
   }

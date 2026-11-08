@@ -23,6 +23,14 @@ export function useSimulation() {
     const id = window.setInterval(() => tickMinute(), REAL_MS_PER_GAME_MINUTE)
     return () => window.clearInterval(id)
   }, [simPaused, tickMinute])
+
+  const ensureWhim = useGameStore((s) => s.ensureWhim)
+  useEffect(() => {
+    if (simPaused) return
+    ensureWhim()
+    const id = window.setInterval(() => ensureWhim(), 4000)
+    return () => window.clearInterval(id)
+  }, [simPaused, ensureWhim])
 }
 
 export function useActionTimer() {

@@ -77,6 +77,62 @@ body,
   color: #991b1b;
 }
 
+.whim {
+  align-self: center;
+  margin-top: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.7rem;
+  background: #fff7ed;
+  border: 2px solid #c2410c;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.whim-time {
+  width: 72px;
+  height: 8px;
+  background: #fed7aa;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.whim-time > span {
+  display: block;
+  height: 100%;
+  background: #ea580c;
+}
+
+.praise {
+  position: fixed;
+  top: 38%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 3px 0 #0f172a;
+  pointer-events: none;
+  animation: need-cue-bob 0.6s ease-in-out infinite;
+}
+
+.play-hint {
+  margin: 0 0 0.35rem;
+  padding: 0.25rem 0.7rem;
+  background: rgba(15, 23, 42, 0.82);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.action-btn.wanted {
+  border-color: #ea580c;
+  background: #ffedd5;
+  animation: need-cue-bob 0.8s ease-in-out infinite;
+}
+
 .happy-day {
   font-size: 0.8rem;
   color: #6b21a8;

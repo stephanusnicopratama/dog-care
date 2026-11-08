@@ -49,10 +49,23 @@ export const ACTION_CONFIG: Record<
 > = {
   feed: { durationMs: 3500, recovery: { hunger: 45 } },
   water: { durationMs: 2500, recovery: { thirst: 50 } },
-  play: { durationMs: 5000, recovery: { fun: 55 } },
+  play: { durationMs: 9000, recovery: { fun: 40 } },
   pet: { durationMs: 2000, recovery: { affection: 40 } },
   bathe: { durationMs: 4500, recovery: { cleanliness: 60 } },
   sleep: { durationMs: 4000, recovery: { energy: 35 } },
 }
 
 export const DEFAULT_DOG_NAME = 'Dog'
+
+export const NEED_ACTION: Record<NeedKey, ActionType> = {
+  hunger: 'feed',
+  thirst: 'water',
+  energy: 'sleep',
+  fun: 'play',
+  cleanliness: 'bathe',
+  affection: 'pet',
+}
+
+export const WHIM_MS = 18000
+export const WHIM_BONUS = 22
+export const FETCH_FUN = 8

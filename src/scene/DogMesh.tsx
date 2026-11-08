@@ -8,7 +8,7 @@ import { useGameStore } from '../store/gameStore'
 import type { ActionType, NeedKey } from '../types'
 import { DogModel, poseFromAction } from './dog/DogModel'
 import { PropClickable } from './PropClickable'
-import { playBallPos } from './playBall'
+import { playBallPos, throwTarget } from './playBall'
 import { PROP_POSITIONS, YARD_TARGETS } from './yardLayout'
 
 const NEED_CUE: Record<NeedKey, string> = {
@@ -35,6 +35,9 @@ export function DogMesh() {
   const urgent = lowestNeed(needs)
   const unfulfilled = !currentAction && !isSleeping && needs[urgent] < MOOD_COMFORT
   const asking = unfulfilled && needs[urgent] < MOOD_ASKING
+  const zoomies = asking && urgent === 'fun'
+  const delightUntil = useGameStore((s) => s.delightUntil)
+  const fetched = useRef(false)
 
   const [wander, setWander] = useState<[number, number, number]>([0, 0, 0])
   const scale = SIZE_SCALE[dog.size]
@@ -51,7 +54,7 @@ export function DogMesh() {
     const g = group.current
     if (!g) return
 
-    if (asking || currentAction === 'pet') {
+    if ((asking && !zoomies) || currentAction === 'pet') {
       movingRef.current = false
       const dx = state.camera.position.x - g.position.x
       const dz = state.camera.position.z - g.position.z
@@ -69,11 +72,17 @@ export function DogMesh() {
       const dx = playBallPos.x - g.position.x
       const dz = playBallPos.z - g.position.z
       const dist = Math.hypot(dx, dz)
+      const ballLanded = !throwTarget.active || playBallPos.y < 0.35
       movingRef.current = dist > 0.7
       if (dist > 0.65) {
         g.position.x += dx * Math.min(1, delta * 4.8)
         g.position.z += dz * Math.min(1, delta * 4.8)
+      } else if (ballLanded && throwTarget.active && !fetched.current) {
+        fetched.current = true
+        throwTarget.active = false
+        useGameStore.getState().noteFetch()
       }
+      if (!throwTarget.active) fetched.current = false
       if (dist > 0.05) g.rotation.y = Math.atan2(dx, dz)
       return
     }
@@ -82,7 +91,7 @@ export function DogMesh() {
     if (isSleeping) target = YARD_TARGETS.sleep ?? [2.6, 0, -1.6]
     else if (currentAction && YARD_TARGETS[currentAction]) target = YARD_TARGETS[currentAction]!
 
-    const speed = currentAction ? 3.8 : 1.25
+    const speed = currentAction ? 3.8 : zoomies ? 3.4 : 1.25
     const dx = target[0] - g.position.x
     const dz = target[2] - g.position.z
     const dist = Math.hypot(dx, dz)
@@ -113,6 +122,7 @@ export function DogMesh() {
           movingRef={movingRef}
           needCue={unfulfilled ? urgent : null}
           asking={asking}
+          delightUntil={delightUntil}
         />
         {unfulfilled && (
           <Billboard position={[0, 1.45, 0]}>

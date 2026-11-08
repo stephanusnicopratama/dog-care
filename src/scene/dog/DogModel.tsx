@@ -33,12 +33,14 @@ export function DogModel({
   movingRef,
   needCue,
   asking,
+  delightUntil,
 }: {
   coatColor: string
   pose: DogPose
   movingRef: MutableRefObject<boolean>
   needCue: NeedKey | null
   asking: boolean
+  delightUntil: number
 }) {
   const root = useRef<Group>(null)
   const head = useRef<Group>(null)
@@ -124,6 +126,11 @@ export function DogModel({
       tailSpeed = 7
     }
 
+    if (delightUntil > Date.now() && pose !== 'sleep') {
+      bodyY += Math.abs(Math.sin(t * 14)) * 0.12
+      tailWag = Math.max(tailWag, 0.9)
+      tailSpeed = 18
+    }
     if (tail.current) {
       tail.current.rotation.y = Math.sin(t * tailSpeed) * tailWag
       tail.current.rotation.x = 0.7

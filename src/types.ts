@@ -29,4 +29,5 @@ export interface SaveData {
   happyDays: number
   /** Minutes in current day where all needs were >= 50 */
   comfortableMinutesToday: number
+  joys: number
 }

@@ -1,15 +1,23 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { Group } from 'three'
 import { useGameStore } from '../../store/gameStore'
-import { playBallPos } from '../playBall'
+import { playBallPos, throwTarget, tossBall } from '../playBall'
 import { PALETTE } from '../materials'
 import { PROP_POSITIONS } from '../yardLayout'
 import { hideInteractionSoon, PropClickable, showInteraction } from '../PropClickable'
 
 export function YardGround({ evening }: { evening: boolean }) {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      receiveShadow
+      onClick={(e) => {
+        if (useGameStore.getState().currentAction !== 'play') return
+        e.stopPropagation()
+        tossBall(e.point.x, e.point.z)
+      }}
+    >
       <planeGeometry args={[14, 14]} />
       <meshStandardMaterial color={evening ? PALETTE.grassEvening : PALETTE.grass} roughness={0.95} />
     </mesh>
@@ -135,22 +143,36 @@ export function TennisBallProp() {
   const playing = useGameStore((s) => s.currentAction === 'play')
   const [homeX, , homeZ] = PROP_POSITIONS.ball
 
-  useFrame((state) => {
+  useEffect(() => {
+    if (!playing) return
+    tossBall((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 3.2)
+  }, [playing])
+
+  useFrame((_, delta) => {
     const g = group.current
     if (!g) return
     if (!playing) {
+      throwTarget.active = false
       g.position.set(homeX, 0.14, homeZ)
       g.rotation.set(0, 0, 0)
       playBallPos.set(homeX, 0.14, homeZ)
       return
     }
-    const t = state.clock.elapsedTime
-    const x = Math.sin(t * 2.1) * 1.8
-    const z = 0.4 + Math.cos(t * 1.55) * 1.5
-    const y = 0.14 + Math.abs(Math.sin(t * 7)) * 0.7
-    g.position.set(x, y, z)
-    g.rotation.x = t * 9
-    playBallPos.set(x, y, z)
+    if (throwTarget.active) {
+      const dx = throwTarget.x - g.position.x
+      const dz = throwTarget.z - g.position.z
+      const dist = Math.hypot(dx, dz)
+      if (dist < 0.08) {
+        g.position.y = 0.16 + Math.abs(Math.sin(performance.now() / 180)) * 0.06
+      } else {
+        const step = Math.min(dist, delta * 8)
+        g.position.x += (dx / dist) * step
+        g.position.z += (dz / dist) * step
+        g.position.y = 0.16 + Math.sin(Math.min(1, dist / 4) * Math.PI) * 1.15
+        g.rotation.x += delta * 14
+      }
+    }
+    playBallPos.set(g.position.x, g.position.y, g.position.z)
   })
 
   return (
