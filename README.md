@@ -2,6 +2,8 @@
 
 Cozy 3D dog care game (v1) from the product PRD. React + Vite + React Three Fiber + Zustand.
 
+**Repository:** [github.com/stephanusnicopratama/dog-care](https://github.com/stephanusnicopratama/dog-care) — separate from the `little-germs` Flutter project.
+
 ## Run
 
 ```bash
