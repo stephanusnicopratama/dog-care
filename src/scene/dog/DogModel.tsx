@@ -1,135 +1,182 @@
-import { useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { useMemo, useRef, type MutableRefObject } from 'react'
+import type { Group, Mesh } from 'three'
 import * as THREE from 'three'
-import { PALETTE } from '../materials'
+import type { ActionType } from '../../types'
 
-type DogPose = 'idle' | 'walk' | 'sleep' | 'eat' | 'drink' | 'play' | 'happy'
+export type DogPose = 'idle' | 'sleep' | 'eat' | 'drink' | 'play' | 'happy'
 
-function coatMaterials(body: string) {
-  const bodyMat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: body,
-        roughness: 0.82,
-        metalness: 0.05,
-      }),
-    [body],
-  )
-  const bellyMat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(body).lerp(new THREE.Color(PALETTE.belly), 0.35),
-        roughness: 0.88,
-      }),
-    [body],
-  )
-  const darkMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: PALETTE.paw, roughness: 0.9 }),
-    [],
-  )
-  return { bodyMat, bellyMat, darkMat }
-}
+const FUR = { roughness: 0.72, metalness: 0 }
 
-function Leg({
-  x,
-  z,
-  phase,
-  bodyMat,
-  darkMat,
+function Fur({
+  color,
+  position,
+  scale,
+  args = [1, 24, 18],
 }: {
-  x: number
-  z: number
-  phase: number
-  bodyMat: THREE.MeshStandardMaterial
-  darkMat: THREE.MeshStandardMaterial
+  color: string
+  position: [number, number, number]
+  scale: [number, number, number]
+  args?: [number, number, number]
 }) {
-  const swing = Math.sin(phase) * 0.22
   return (
-    <group position={[x, 0.18, z]} rotation={[swing, 0, 0]}>
-      <mesh position={[0, 0.14, 0]} castShadow material={bodyMat}>
-        <cylinderGeometry args={[0.07, 0.085, 0.28, 8]} />
-      </mesh>
-      <mesh position={[0, -0.02, 0.02]} castShadow material={darkMat}>
-        <sphereGeometry args={[0.09, 10, 10]} />
-      </mesh>
-    </group>
+    <mesh position={position} scale={scale} castShadow>
+      <sphereGeometry args={args} />
+      <meshStandardMaterial color={color} {...FUR} />
+    </mesh>
   )
 }
 
 export function DogModel({
   coatColor,
   pose,
-  walkPhase,
-  headTilt = 0,
+  movingRef,
 }: {
   coatColor: string
   pose: DogPose
-  walkPhase: number
-  headTilt?: number
+  movingRef: MutableRefObject<boolean>
 }) {
-  const { bodyMat, bellyMat, darkMat } = coatMaterials(coatColor)
-  const eyeShineMat = useMemo(() => new THREE.MeshStandardMaterial({ color: PALETTE.eyeShine }), [])
+  const root = useRef<Group>(null)
+  const head = useRef<Group>(null)
+  const tail = useRef<Group>(null)
+  const legs = [
+    useRef<Group>(null),
+    useRef<Group>(null),
+    useRef<Group>(null),
+    useRef<Group>(null),
+  ]
+  const eyeL = useRef<Mesh>(null)
+  const eyeR = useRef<Mesh>(null)
+
+  const belly = useMemo(() => {
+    const c = new THREE.Color(coatColor)
+    return `#${c.lerp(new THREE.Color('#fff7ed'), 0.55).getHexString()}`
+  }, [coatColor])
+
+  const ear = useMemo(() => {
+    const c = new THREE.Color(coatColor)
+    return `#${c.lerp(new THREE.Color('#1c1917'), 0.35).getHexString()}`
+  }, [coatColor])
+
+  useFrame((state, delta) => {
+    const moving = movingRef.current && pose !== 'sleep'
+    const t = state.clock.elapsedTime
+    const phase = moving ? t * 8 : t * 1.6
+
+    const swing = moving ? 0.45 : 0.04
+    legs[0].current?.rotation.set(Math.sin(phase) * swing, 0, 0)
+    legs[3].current?.rotation.set(Math.sin(phase) * swing, 0, 0)
+    legs[1].current?.rotation.set(Math.sin(phase + Math.PI) * swing, 0, 0)
+    legs[2].current?.rotation.set(Math.sin(phase + Math.PI) * swing, 0, 0)
+
+    if (tail.current) {
+      const wag = pose === 'play' || pose === 'happy' ? 0.7 : 0.18
+      tail.current.rotation.y = Math.sin(t * (pose === 'play' ? 14 : 3)) * wag
+      tail.current.rotation.x = 0.7
+    }
+
+    if (head.current) {
+      const eat = pose === 'eat' || pose === 'drink' ? 0.55 : 0
+      const look = pose === 'idle' ? Math.sin(t * 0.7) * 0.08 : 0
+      head.current.rotation.x = eat
+      head.current.rotation.y = look
+    }
+
+    if (root.current && pose !== 'sleep') {
+      root.current.position.y = Math.sin(t * 2) * 0.015
+    }
+
+    const blink = Math.sin(t * 0.35) > 0.97 || pose === 'sleep' ? 0.15 : 1
+    if (eyeL.current) eyeL.current.scale.y = blink
+    if (eyeR.current) eyeR.current.scale.y = blink
+
+    void delta
+  })
 
   const sleeping = pose === 'sleep'
-  const eating = pose === 'eat' || pose === 'drink'
-  const playful = pose === 'play' || pose === 'happy'
-
-  const headRotX = sleeping ? -0.15 : eating ? 0.45 + headTilt : headTilt
-  const headY = sleeping ? 0.38 : 0.52
-  const headZ = sleeping ? 0.15 : 0.42
-  const tailWag = playful ? Math.sin(walkPhase * 2.5) * 0.5 : Math.sin(walkPhase * 0.6) * 0.12
 
   return (
-    <group rotation={[sleeping ? -0.55 : 0, 0, 0]} position={[0, sleeping ? 0.12 : 0.32, 0]}>
-      {/* torso */}
-      <mesh position={[0, 0.28, -0.05]} castShadow material={bodyMat}>
-        <capsuleGeometry args={[0.26, 0.62, 6, 12]} />
-      </mesh>
-      <mesh position={[0, 0.22, 0.08]} castShadow material={bellyMat}>
-        <sphereGeometry args={[0.22, 12, 10]} />
-      </mesh>
+    <group
+      ref={root}
+      position={[0, sleeping ? 0.22 : 0, 0]}
+      rotation={[0, 0, sleeping ? 1.15 : 0]}
+    >
+      <Fur color={coatColor} position={[0, 0.46, -0.02]} scale={[0.34, 0.28, 0.48]} />
+      <Fur color={belly} position={[0, 0.4, 0.12]} scale={[0.26, 0.2, 0.28]} />
+      <Fur color={coatColor} position={[0, 0.5, 0.28]} scale={[0.2, 0.18, 0.16]} />
 
-      {/* head */}
-      <group position={[0, headY, headZ]} rotation={[headRotX, 0, 0]}>
-        <mesh castShadow material={bodyMat}>
-          <sphereGeometry args={[0.24, 14, 12]} />
+      <group ref={head} position={[0, 0.72, 0.42]}>
+        <Fur color={coatColor} position={[0, 0, 0]} scale={[0.28, 0.26, 0.26]} />
+        <Fur color={belly} position={[0, -0.04, 0.16]} scale={[0.14, 0.1, 0.14]} />
+        <mesh position={[0, -0.02, 0.28]} castShadow>
+          <sphereGeometry args={[0.055, 12, 12]} />
+          <meshStandardMaterial color="#1c1917" roughness={0.4} />
         </mesh>
-        <mesh position={[0, -0.02, 0.22]} castShadow material={bodyMat}>
-          <boxGeometry args={[0.2, 0.14, 0.22]} />
+        <mesh ref={eyeL} position={[-0.1, 0.06, 0.2]}>
+          <sphereGeometry args={[0.045, 12, 12]} />
+          <meshStandardMaterial color="#f8fafc" />
         </mesh>
-        <mesh position={[0, 0.1, 0.36]} material={darkMat}>
-          <sphereGeometry args={[0.045, 8, 8]} />
+        <mesh ref={eyeR} position={[0.1, 0.06, 0.2]}>
+          <sphereGeometry args={[0.045, 12, 12]} />
+          <meshStandardMaterial color="#f8fafc" />
         </mesh>
-        <mesh position={[-0.09, 0.14, 0.02]} rotation={[0.2, 0.3, -0.4]} castShadow material={bodyMat}>
-          <coneGeometry args={[0.09, 0.2, 6]} />
+        <mesh position={[-0.1, 0.06, 0.24]}>
+          <sphereGeometry args={[0.022, 10, 10]} />
+          <meshStandardMaterial color="#0f172a" />
         </mesh>
-        <mesh position={[0.09, 0.14, 0.02]} rotation={[0.2, -0.3, 0.4]} castShadow material={bodyMat}>
-          <coneGeometry args={[0.09, 0.2, 6]} />
+        <mesh position={[0.1, 0.06, 0.24]}>
+          <sphereGeometry args={[0.022, 10, 10]} />
+          <meshStandardMaterial color="#0f172a" />
         </mesh>
-        <mesh position={[-0.1, 0.06, 0.28]} material={darkMat}>
-          <sphereGeometry args={[0.035, 8, 8]} />
+        <mesh position={[-0.2, 0.02, -0.02]} rotation={[0.2, 0, 0.9]} castShadow>
+          <sphereGeometry args={[0.14, 12, 10]} />
+          <meshStandardMaterial color={ear} {...FUR} />
         </mesh>
-        <mesh position={[0.1, 0.06, 0.28]} material={darkMat}>
-          <sphereGeometry args={[0.035, 8, 8]} />
-        </mesh>
-        <mesh position={[-0.08, 0.08, 0.31]} material={eyeShineMat}>
-          <sphereGeometry args={[0.012, 6, 6]} />
-        </mesh>
-        <mesh position={[0.08, 0.08, 0.31]} material={eyeShineMat}>
-          <sphereGeometry args={[0.012, 6, 6]} />
+        <mesh position={[0.2, 0.02, -0.02]} rotation={[0.2, 0, -0.9]} castShadow>
+          <sphereGeometry args={[0.14, 12, 10]} />
+          <meshStandardMaterial color={ear} {...FUR} />
         </mesh>
       </group>
 
-      {/* tail */}
-      <group position={[0, 0.38, -0.42]} rotation={[0.5 + tailWag, 0, 0]}>
-        <mesh castShadow material={bodyMat}>
-          <capsuleGeometry args={[0.05, 0.22, 4, 8]} />
+      <group ref={tail} position={[0, 0.58, -0.42]}>
+        <mesh position={[0, 0.08, -0.08]} castShadow>
+          <sphereGeometry args={[0.07, 10, 10]} />
+          <meshStandardMaterial color={coatColor} {...FUR} />
+        </mesh>
+        <mesh position={[0, 0.16, -0.16]} castShadow>
+          <sphereGeometry args={[0.055, 10, 10]} />
+          <meshStandardMaterial color={coatColor} {...FUR} />
         </mesh>
       </group>
 
-      <Leg x={-0.2} z={0.2} phase={walkPhase} bodyMat={bodyMat} darkMat={darkMat} />
-      <Leg x={0.2} z={0.2} phase={walkPhase + Math.PI} bodyMat={bodyMat} darkMat={darkMat} />
-      <Leg x={-0.2} z={-0.22} phase={walkPhase + Math.PI} bodyMat={bodyMat} darkMat={darkMat} />
-      <Leg x={0.2} z={-0.22} phase={walkPhase} bodyMat={bodyMat} darkMat={darkMat} />
+      {(
+        [
+          [-0.16, 0.22],
+          [0.16, 0.22],
+          [-0.16, -0.22],
+          [0.16, -0.22],
+        ] as const
+      ).map(([x, z], i) => (
+        <group key={i} ref={legs[i]} position={[x, 0.28, z]}>
+          <mesh position={[0, -0.12, 0]} castShadow>
+            <capsuleGeometry args={[0.055, 0.16, 4, 8]} />
+            <meshStandardMaterial color={coatColor} {...FUR} />
+          </mesh>
+          <mesh position={[0, -0.24, 0.02]} castShadow>
+            <sphereGeometry args={[0.07, 10, 10]} />
+            <meshStandardMaterial color="#44403c" roughness={0.9} />
+          </mesh>
+        </group>
+      ))}
     </group>
   )
+}
+
+export function poseFromAction(action: ActionType | null, sleeping: boolean): DogPose {
+  if (sleeping) return 'sleep'
+  if (action === 'feed') return 'eat'
+  if (action === 'water') return 'drink'
+  if (action === 'play') return 'play'
+  if (action === 'pet') return 'happy'
+  return 'idle'
 }

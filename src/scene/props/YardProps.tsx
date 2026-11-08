@@ -1,4 +1,3 @@
-import { Text } from '@react-three/drei'
 import { useMemo } from 'react'
 import { PALETTE } from '../materials'
 import { PROP_POSITIONS } from '../yardLayout'
@@ -64,7 +63,7 @@ export function YardFence() {
 export function FoodBowlProp() {
   const [x, , z] = PROP_POSITIONS.foodBowl
   return (
-    <PropClickable position={[x, 0, z]} action="feed">
+    <PropClickable id="food" title="Food bowl" actions={['feed']} position={[x, 0, z]}>
       <group position={[0, 0.12, 0]}>
         <mesh castShadow>
           <cylinderGeometry args={[0.38, 0.32, 0.14, 20]} />
@@ -86,7 +85,7 @@ export function FoodBowlProp() {
 export function WaterBowlProp() {
   const [x, , z] = PROP_POSITIONS.waterBowl
   return (
-    <PropClickable position={[x, 0, z]} action="water">
+    <PropClickable id="water" title="Water bowl" actions={['water']} position={[x, 0, z]}>
       <group position={[0, 0.12, 0]}>
         <mesh castShadow>
           <cylinderGeometry args={[0.38, 0.32, 0.14, 20]} />
@@ -110,7 +109,7 @@ export function WaterBowlProp() {
 export function DogBedProp() {
   const [x, , z] = PROP_POSITIONS.bed
   return (
-    <PropClickable position={[x, 0, z]} action="sleep">
+    <PropClickable id="bed" title="Dog bed" actions={['sleep']} position={[x, 0, z]}>
       <mesh position={[0, 0.08, 0]} castShadow>
         <boxGeometry args={[1.55, 0.16, 1.15]} />
         <meshStandardMaterial color={PALETTE.woodDark} roughness={0.85} />
@@ -130,7 +129,7 @@ export function DogBedProp() {
 export function TennisBallProp() {
   const [x, , z] = PROP_POSITIONS.ball
   return (
-    <PropClickable position={[x, 0, z]} action="play">
+    <PropClickable id="ball" title="Ball" actions={['play']} position={[x, 0, z]}>
       <mesh position={[0, 0.14, 0]} castShadow>
         <sphereGeometry args={[0.16, 20, 16]} />
         <meshStandardMaterial color={PALETTE.ball} roughness={0.55} />
@@ -146,12 +145,12 @@ export function TennisBallProp() {
 export function DogHouseProp() {
   const [x, , z] = PROP_POSITIONS.dogHouse
   return (
-    <group position={[x, 0, z]}>
+    <PropClickable id="house" title="Doghouse" actions={['sleep']} position={[x, 0, z]}>
       <mesh position={[0, 0.45, 0]} castShadow>
         <boxGeometry args={[1.35, 0.9, 1.25]} />
         <meshStandardMaterial color={PALETTE.house} roughness={0.88} />
       </mesh>
-      <mesh position={[0, 1.05, 0]} rotation={[0, 0, 0]} castShadow>
+      <mesh position={[0, 1.05, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
         <coneGeometry args={[1.05, 0.55, 4]} />
         <meshStandardMaterial color={PALETTE.houseRoof} roughness={0.9} />
       </mesh>
@@ -159,23 +158,14 @@ export function DogHouseProp() {
         <boxGeometry args={[0.42, 0.52, 0.06]} />
         <meshStandardMaterial color={PALETTE.houseDoor} />
       </mesh>
-    </group>
+    </PropClickable>
   )
 }
 
-export function BatheTubProp({ onBathe }: { onBathe: () => void }) {
+export function BatheTubProp() {
   const [x, , z] = PROP_POSITIONS.bathe
   return (
-    <group
-      position={[x, 0, z]}
-      onClick={(e) => {
-        e.stopPropagation()
-        onBathe()
-      }}
-      onPointerOver={() => {
-        document.body.style.cursor = 'pointer'
-      }}
-    >
+    <PropClickable id="tub" title="Wash tub" actions={['bathe']} position={[x, 0, z]}>
       <mesh position={[0, 0.22, 0]} castShadow>
         <boxGeometry args={[1.35, 0.44, 0.95]} />
         <meshStandardMaterial color={PALETTE.tub} roughness={0.4} metalness={0.2} />
@@ -190,9 +180,6 @@ export function BatheTubProp({ onBathe }: { onBathe: () => void }) {
           metalness={0.15}
         />
       </mesh>
-      <Text position={[0, 0.75, 0]} fontSize={0.2} color="#0369a1" anchorX="center">
-        Bathe
-      </Text>
-    </group>
+    </PropClickable>
   )
 }
