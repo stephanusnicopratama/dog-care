@@ -1,8 +1,9 @@
 ---
 name: git-commits-no-agent
 description: >-
-  Use whenever staging or creating git commits. Keeps authorship human-only: no
-  Cursor/AI co-author trailers, no agent committer identity, no Co-authored-by lines.
+  Keeps git authorship human-only: no Cursor or AI co-author trailers, no agent
+  committer identity, and no Co-authored-by lines. Use whenever staging or
+  creating a commit, including when the user asks to commit, amend, or push.
 ---
 
 # Git commits (no agent attribution)
@@ -12,8 +13,8 @@ Apply this skill for every commit the user requests or that you create on their 
 **Important:** Cursor may append `Co-authored-by: Cursor <cursoragent@cursor.com>` at the **tooling** layer after `git commit`, even when the model does not. That is not a separate git author (Author/Committer stay the user) but GitHub shows a second contributor. Mitigations:
 
 1. **Cursor Settings → Git & PRs → Attribution** — turn off **Commit attribution** (and PR if desired).
-2. **`%USERPROFILE%\.cursor\cli-config.json`** — `"attribution": { "attributeCommitsToAgent": false, "attributePRsToAgent": false }`.
-3. **Global hook** — `%USERPROFILE%\.githooks\commit-msg` via `git config --global core.hooksPath` (strips agent trailers).
+2. **`~/.cursor/cli-config.json`** — `"attribution": { "attributeCommitsToAgent": false, "attributePRsToAgent": false }`.
+3. **Global hook** — `~/.githooks/commit-msg` via `git config --global core.hooksPath` (strips agent trailers).
 
 ## Rules
 

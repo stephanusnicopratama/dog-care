@@ -108,7 +108,7 @@ State lives in `~/.claude/artisanal-slop/<owner>__<repo>/`. The driver is a norm
 you can run yourself while the loop is going:
 
 ```bash
-LOOP=~/.claude/skills/artisanal-slop/bin/artisanal-slop
+LOOP="${CLAUDE_SKILL_DIR}/bin/artisanal-slop"
 
 $LOOP status         # the current table: every issue and where it is
 $LOOP show 42        # one issue's full state, blobs, and transition log

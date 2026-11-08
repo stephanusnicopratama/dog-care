@@ -28,7 +28,7 @@ so **never investigate code or write fixes yourself.**
 Set this once at the start and use it throughout:
 
 ```bash
-LOOP=~/.claude/skills/artisanal-slop/bin/artisanal-slop
+LOOP="${CLAUDE_SKILL_DIR}/bin/artisanal-slop"
 ```
 
 ## The protocol

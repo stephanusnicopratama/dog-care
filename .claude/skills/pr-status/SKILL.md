@@ -18,7 +18,7 @@ name: pr-status
 Triage the user's open GitHub PRs into what needs their action, what is waiting on
 someone else, and what is going stale. Read-only: nothing here writes to GitHub.
 
-`scripts/pr_status.py` (resolve it against this skill's own directory) does the
+`${CLAUDE_SKILL_DIR}/scripts/pr_status.py` does the
 collection, staleness math, and formatting. Run it — do not reimplement its `gh`
 calls inline, and do not re-fetch PRs it already reported on.
 
@@ -40,7 +40,7 @@ before running anything.
 ## 2. Run the script
 
 ```bash
-python3 <skill-dir>/scripts/pr_status.py [--org NAME | --user NAME | --repo OWNER/NAME]
+python3 "${CLAUDE_SKILL_DIR}/scripts/pr_status.py" [--org NAME | --user NAME | --repo OWNER/NAME]
 ```
 
 | Flag | Use when |
