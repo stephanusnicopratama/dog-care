@@ -1,11 +1,23 @@
+import { Billboard, Html } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
+import { MOOD_ASKING, MOOD_COMFORT } from '../config/simulation'
+import { lowestNeed } from '../lib/mood'
 import { useGameStore } from '../store/gameStore'
-import type { ActionType } from '../types'
+import type { ActionType, NeedKey } from '../types'
 import { DogModel, poseFromAction } from './dog/DogModel'
 import { PropClickable } from './PropClickable'
 import { YARD_TARGETS } from './yardLayout'
+
+const NEED_CUE: Record<NeedKey, string> = {
+  hunger: '🍖',
+  thirst: '💧',
+  energy: '😴',
+  fun: '🎾',
+  cleanliness: '🛁',
+  affection: '🤚',
+}
 
 const SIZE_SCALE = { small: 0.75, medium: 1, large: 1.25 } as const
 
@@ -15,9 +27,13 @@ export function DogMesh() {
   const group = useRef<Group>(null)
   const movingRef = useRef(false)
   const dog = useGameStore((s) => s.dog)
+  const needs = useGameStore((s) => s.needs)
   const currentAction = useGameStore((s) => s.currentAction)
   const isSleeping = useGameStore((s) => s.isSleeping)
   const name = dog.name
+  const urgent = lowestNeed(needs)
+  const unfulfilled = !currentAction && !isSleeping && needs[urgent] < MOOD_COMFORT
+  const asking = unfulfilled && needs[urgent] < MOOD_ASKING
 
   const [wander, setWander] = useState<[number, number, number]>([0, 0, 0])
   const scale = SIZE_SCALE[dog.size]
@@ -30,9 +46,17 @@ export function DogMesh() {
     return () => window.clearInterval(id)
   }, [currentAction, isSleeping])
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const g = group.current
     if (!g) return
+
+    if (asking) {
+      movingRef.current = false
+      const dx = state.camera.position.x - g.position.x
+      const dz = state.camera.position.z - g.position.z
+      g.rotation.y = Math.atan2(dx, dz)
+      return
+    }
 
     let target: [number, number, number] = wander
     if (isSleeping) target = YARD_TARGETS.sleep ?? [2.6, 0, -1.6]
@@ -55,7 +79,18 @@ export function DogMesh() {
           coatColor={dog.coatColor}
           pose={poseFromAction(currentAction, isSleeping)}
           movingRef={movingRef}
+          needCue={unfulfilled ? urgent : null}
+          asking={asking}
         />
+        {unfulfilled && (
+          <Billboard position={[0, 1.45, 0]}>
+            <Html center sprite style={{ pointerEvents: 'none' }}>
+              <div className={`need-cue${asking ? ' asking' : ''}`} aria-hidden>
+                {NEED_CUE[urgent]}
+              </div>
+            </Html>
+          </Billboard>
+        )}
       </PropClickable>
     </group>
   )

@@ -1,8 +1,9 @@
-import { COAT_SWATCHES, MOOD_ASKING } from '../config/simulation'
+import { useEffect, useState } from 'react'
+import { ACTION_CONFIG, COAT_SWATCHES, MOOD_ASKING } from '../config/simulation'
 import { useActionTimer, useSimulation } from '../hooks/useSimulation'
 import { getMood, lowestNeed } from '../lib/mood'
 import { formatGameClock } from '../lib/time'
-import { useGameStore } from '../store/gameStore'
+import { MAX_QUEUED, useGameStore, type QueuedAction } from '../store/gameStore'
 import type { ActionType, NeedKey } from '../types'
 import { ACTION_META } from './actionMeta'
 import { holdInteraction, hideInteractionSoon } from '../scene/PropClickable'
@@ -40,6 +41,10 @@ export function Hud() {
   const gameMinute = useGameStore((s) => s.gameMinute)
   const happyDays = useGameStore((s) => s.happyDays)
   const currentAction = useGameStore((s) => s.currentAction)
+  const actionQueue = useGameStore((s) => s.actionQueue)
+  const actionEndsAt = useGameStore((s) => s.actionEndsAt)
+  const cancelCurrent = useGameStore((s) => s.cancelCurrent)
+  const cancelQueued = useGameStore((s) => s.cancelQueued)
   const isSleeping = useGameStore((s) => s.isSleeping)
   const dogPanelOpen = useGameStore((s) => s.dogPanelOpen)
   const setDogPanelOpen = useGameStore((s) => s.setDogPanelOpen)
@@ -51,6 +56,7 @@ export function Hud() {
 
   const mood = getMood(needs)
   const urgent = lowestNeed(needs)
+  const queueFull = !!currentAction && actionQueue.length >= MAX_QUEUED
   const showAsking = needs[urgent] < MOOD_ASKING && !currentAction
 
   const onAction = (action: ActionType) => {
@@ -94,19 +100,31 @@ export function Hud() {
         </div>
       )}
 
+      <div className="bottom-dock">
+      {(currentAction || actionQueue.length > 0) && (
+        <TaskQueue
+          currentAction={currentAction}
+          actionEndsAt={actionEndsAt}
+          queue={actionQueue}
+          onCancelCurrent={cancelCurrent}
+          onCancelQueued={cancelQueued}
+        />
+      )}
+
       <div className="action-row">
         {(Object.keys(ACTION_META) as ActionType[]).map((action) => (
           <button
             key={action}
             type="button"
             className="action-btn"
-            disabled={!!currentAction}
+            disabled={queueFull}
             onClick={() => onAction(action)}
           >
             <span className="icon">{ACTION_META[action].icon}</span>
             {action === 'sleep' && isSleeping ? 'Wake' : ACTION_META[action].label}
           </button>
         ))}
+      </div>
       </div>
 
       {dogPanelOpen && (
@@ -194,11 +212,77 @@ function DogPanel({
   )
 }
 
+function TaskQueue({
+  currentAction,
+  actionEndsAt,
+  queue,
+  onCancelCurrent,
+  onCancelQueued,
+}: {
+  currentAction: ActionType | null
+  actionEndsAt: number | null
+  queue: QueuedAction[]
+  onCancelCurrent: () => void
+  onCancelQueued: (id: string) => void
+}) {
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    if (!currentAction || actionEndsAt == null) return
+    const id = window.setInterval(() => setNow(Date.now()), 100)
+    return () => window.clearInterval(id)
+  }, [currentAction, actionEndsAt])
+
+  return (
+    <ol className="task-queue" aria-label="Assigned tasks">
+      {currentAction && (
+        <li className="task-row active">
+          <span className="task-icon">{ACTION_META[currentAction].icon}</span>
+          <span className="task-copy">
+            <span className="task-label">{ACTION_META[currentAction].label}</span>
+            <span className="task-progress">
+              <span
+                style={{
+                  width: `${actionProgress(currentAction, actionEndsAt, now)}%`,
+                }}
+              />
+            </span>
+          </span>
+          <button type="button" className="task-cancel" onClick={onCancelCurrent} aria-label="Cancel current task">
+            ✕
+          </button>
+        </li>
+      )}
+      {queue.map((item) => (
+        <li key={item.id} className="task-row">
+          <span className="task-icon">{ACTION_META[item.action].icon}</span>
+          <span className="task-label">{ACTION_META[item.action].label}</span>
+          <button
+            type="button"
+            className="task-cancel"
+            onClick={() => onCancelQueued(item.id)}
+            aria-label={`Cancel ${ACTION_META[item.action].label}`}
+          >
+            ✕
+          </button>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function actionProgress(action: ActionType, endsAt: number | null, now: number): number {
+  if (endsAt == null) return 0
+  const duration = ACTION_CONFIG[action].durationMs
+  const remaining = Math.max(0, endsAt - now)
+  return Math.min(100, Math.max(0, ((duration - remaining) / duration) * 100))
+}
+
 function InteractionMenu() {
   const target = useGameStore((s) => s.hoverTarget)
   const pinned = useGameStore((s) => s.menuPinned)
   const isSleeping = useGameStore((s) => s.isSleeping)
-  const currentAction = useGameStore((s) => s.currentAction)
+  const queueFull = useGameStore((s) => !!s.currentAction && s.actionQueue.length >= MAX_QUEUED)
   const startAction = useGameStore((s) => s.startAction)
   const wakeDog = useGameStore((s) => s.wakeDog)
   const closeInteraction = useGameStore((s) => s.closeInteraction)
@@ -227,7 +311,7 @@ function InteractionMenu() {
             <li key={action}>
               <button
                 type="button"
-                disabled={!!currentAction}
+                disabled={queueFull}
                 onClick={() => {
                   if (wake) wakeDog()
                   else startAction(action)

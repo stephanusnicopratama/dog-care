@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef, type MutableRefObject } from 'react'
 import type { Group, Mesh } from 'three'
 import * as THREE from 'three'
-import type { ActionType } from '../../types'
+import type { ActionType, NeedKey } from '../../types'
 
 export type DogPose = 'idle' | 'sleep' | 'eat' | 'drink' | 'play' | 'happy'
 
@@ -31,10 +31,14 @@ export function DogModel({
   coatColor,
   pose,
   movingRef,
+  needCue,
+  asking,
 }: {
   coatColor: string
   pose: DogPose
   movingRef: MutableRefObject<boolean>
+  needCue: NeedKey | null
+  asking: boolean
 }) {
   const root = useRef<Group>(null)
   const head = useRef<Group>(null)
@@ -58,39 +62,64 @@ export function DogModel({
     return `#${c.lerp(new THREE.Color('#1c1917'), 0.35).getHexString()}`
   }, [coatColor])
 
-  useFrame((state, delta) => {
+  useFrame((state) => {
     const moving = movingRef.current && pose !== 'sleep'
     const t = state.clock.elapsedTime
     const phase = moving ? t * 8 : t * 1.6
+    const cue = pose === 'idle' ? needCue : null
+    const pace = asking ? 1.6 : 1
 
-    const swing = moving ? 0.45 : 0.04
+    const swing = moving ? 0.45 : cue === 'energy' ? 0.02 : 0.04
     legs[0].current?.rotation.set(Math.sin(phase) * swing, 0, 0)
     legs[3].current?.rotation.set(Math.sin(phase) * swing, 0, 0)
     legs[1].current?.rotation.set(Math.sin(phase + Math.PI) * swing, 0, 0)
     legs[2].current?.rotation.set(Math.sin(phase + Math.PI) * swing, 0, 0)
 
+    let headX = 0
+    let headY = pose === 'idle' && !cue ? Math.sin(t * 0.7) * 0.08 : 0
+    let tailWag = pose === 'play' || pose === 'happy' ? 0.7 : 0.18
+    let tailSpeed = pose === 'play' ? 14 : 3
+    let bodyY = pose === 'sleep' ? 0 : Math.sin(t * 2) * 0.015
+    let bodyZ = 0
+    let eyeY = Math.sin(t * 0.35) > 0.97 || pose === 'sleep' ? 0.15 : 1
+
+    if (pose === 'eat' || pose === 'drink') headX = 0.55
+
+    if (cue === 'hunger') {
+      headX = 0.5 + Math.sin(t * 2.5 * pace) * 0.1
+    } else if (cue === 'thirst') {
+      headX = 0.12
+      headY = Math.sin(t * 9 * pace) * 0.14
+    } else if (cue === 'energy') {
+      headX = 0.4
+      bodyY = -0.05
+      eyeY = 0.28
+    } else if (cue === 'fun') {
+      bodyY = Math.abs(Math.sin(t * 6 * pace)) * (asking ? 0.1 : 0.05)
+      tailWag = 0.35
+      tailSpeed = 8
+    } else if (cue === 'cleanliness') {
+      bodyZ = Math.sin(t * 14 * pace) * (asking ? 0.28 : 0.12)
+    } else if (cue === 'affection') {
+      headX = -0.4
+      tailWag = asking ? 0.55 : 0.3
+      tailSpeed = 7
+    }
+
     if (tail.current) {
-      const wag = pose === 'play' || pose === 'happy' ? 0.7 : 0.18
-      tail.current.rotation.y = Math.sin(t * (pose === 'play' ? 14 : 3)) * wag
+      tail.current.rotation.y = Math.sin(t * tailSpeed) * tailWag
       tail.current.rotation.x = 0.7
     }
-
     if (head.current) {
-      const eat = pose === 'eat' || pose === 'drink' ? 0.55 : 0
-      const look = pose === 'idle' ? Math.sin(t * 0.7) * 0.08 : 0
-      head.current.rotation.x = eat
-      head.current.rotation.y = look
+      head.current.rotation.x = headX
+      head.current.rotation.y = headY
     }
-
     if (root.current && pose !== 'sleep') {
-      root.current.position.y = Math.sin(t * 2) * 0.015
+      root.current.position.y = bodyY
+      root.current.rotation.z = bodyZ
     }
-
-    const blink = Math.sin(t * 0.35) > 0.97 || pose === 'sleep' ? 0.15 : 1
-    if (eyeL.current) eyeL.current.scale.y = blink
-    if (eyeR.current) eyeR.current.scale.y = blink
-
-    void delta
+    if (eyeL.current) eyeL.current.scale.y = eyeY
+    if (eyeR.current) eyeR.current.scale.y = eyeY
   })
 
   const sleeping = pose === 'sleep'

@@ -18,6 +18,13 @@ export interface InteractionTarget {
   y: number
 }
 
+export interface QueuedAction {
+  id: string
+  action: ActionType
+}
+
+export const MAX_QUEUED = 6
+
 function clampNeed(n: number): number {
   return Math.max(0, Math.min(100, n))
 }
@@ -31,6 +38,7 @@ interface GameState {
   comfortableMinutesToday: number
   currentAction: ActionType | null
   actionEndsAt: number | null
+  actionQueue: QueuedAction[]
   simPaused: boolean
   dogPanelOpen: boolean
   hoverTarget: InteractionTarget | null
@@ -44,6 +52,8 @@ interface GameState {
   setCoatColor: (color: string) => void
   setDogSize: (size: Dog['size']) => void
   startAction: (action: ActionType) => boolean
+  cancelCurrent: () => void
+  cancelQueued: (id: string) => void
   tickMinute: () => void
   finishAction: () => void
   wakeDog: () => void
@@ -62,6 +72,25 @@ function snapshot(state: GameState): SaveData {
     happyDays: state.happyDays,
     comfortableMinutesToday: state.comfortableMinutesToday,
   }
+}
+
+function beginAction(set: (partial: Partial<GameState>) => void, action: ActionType) {
+  const endsAt = Date.now() + ACTION_CONFIG[action].durationMs
+  if (action === 'sleep') {
+    set({ isSleeping: true, currentAction: action, actionEndsAt: endsAt })
+  } else {
+    set({ isSleeping: false, currentAction: action, actionEndsAt: endsAt })
+  }
+}
+
+function promoteQueue(
+  set: (partial: Partial<GameState>) => void,
+  get: () => GameState,
+) {
+  const [next, ...rest] = get().actionQueue
+  if (!next) return
+  set({ actionQueue: rest })
+  beginAction(set, next.action)
 }
 
 function applyDrain(needs: Needs, isSleeping: boolean): Needs {
@@ -86,12 +115,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   ...loadSave(),
   currentAction: null,
   actionEndsAt: null,
+  actionQueue: [],
   simPaused: false,
   dogPanelOpen: false,
   hoverTarget: null,
   menuPinned: false,
 
-  hydrate: () => set({ ...loadSave(), currentAction: null, actionEndsAt: null }),
+  hydrate: () => set({ ...loadSave(), currentAction: null, actionEndsAt: null, actionQueue: [] }),
 
   save: () => persistSave(snapshot(get())),
 
@@ -116,19 +146,31 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   startAction: (action) => {
-    const { currentAction } = get()
-    if (currentAction) return false
-
-    const config = ACTION_CONFIG[action]
-    const endsAt = Date.now() + config.durationMs
-
-    if (action === 'sleep') {
-      set({ isSleeping: true, currentAction: action, actionEndsAt: endsAt })
-    } else {
-      if (get().isSleeping) set({ isSleeping: false })
-      set({ currentAction: action, actionEndsAt: endsAt })
+    const { currentAction, actionQueue } = get()
+    if (currentAction) {
+      if (actionQueue.length >= MAX_QUEUED) return false
+      set({
+        actionQueue: [...actionQueue, { id: crypto.randomUUID(), action }],
+      })
+      return true
     }
+    beginAction(set, action)
     return true
+  },
+
+  cancelCurrent: () => {
+    const { currentAction } = get()
+    if (!currentAction) return
+    set({
+      currentAction: null,
+      actionEndsAt: null,
+      isSleeping: currentAction === 'sleep' ? false : get().isSleeping,
+    })
+    promoteQueue(set, get)
+  },
+
+  cancelQueued: (id) => {
+    set({ actionQueue: get().actionQueue.filter((item) => item.id !== id) })
   },
 
   finishAction: () => {
@@ -159,12 +201,19 @@ export const useGameStore = create<GameState>((set, get) => ({
       isSleeping: nextSleeping,
     })
 
+    promoteQueue(set, get)
     get().save()
   },
 
   wakeDog: () => {
-    if (!get().isSleeping) return
-    set({ isSleeping: false, currentAction: null, actionEndsAt: null })
+    if (!get().isSleeping && get().currentAction !== 'sleep') return
+    set({
+      isSleeping: false,
+      currentAction: null,
+      actionEndsAt: null,
+      actionQueue: get().actionQueue.filter((item) => item.action !== 'sleep'),
+    })
+    promoteQueue(set, get)
     get().save()
   },
 
