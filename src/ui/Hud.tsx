@@ -4,6 +4,8 @@ import { getMood, lowestNeed } from '../lib/mood'
 import { formatGameClock } from '../lib/time'
 import { useGameStore } from '../store/gameStore'
 import type { ActionType, NeedKey } from '../types'
+import { ACTION_META } from './actionMeta'
+import { holdInteraction, hideInteractionSoon } from '../scene/PropClickable'
 
 const NEED_LABELS: Record<NeedKey, string> = {
   hunger: 'Hunger',
@@ -12,15 +14,6 @@ const NEED_LABELS: Record<NeedKey, string> = {
   fun: 'Fun',
   cleanliness: 'Clean',
   affection: 'Love',
-}
-
-const ACTION_META: Record<ActionType, { label: string; icon: string }> = {
-  feed: { label: 'Feed', icon: '🍖' },
-  water: { label: 'Water', icon: '💧' },
-  play: { label: 'Play', icon: '🎾' },
-  pet: { label: 'Pet', icon: '🤚' },
-  bathe: { label: 'Bathe', icon: '🛁' },
-  sleep: { label: 'Sleep', icon: '😴' },
 }
 
 const ASKING_ICONS: Record<NeedKey, string> = {
@@ -69,7 +62,8 @@ export function Hud() {
   }
 
   return (
-    <div className="ui-root">
+      <div className="ui-root">
+      <InteractionMenu />
       <header className="top-bar">
         <button type="button" className="dog-name-btn" onClick={() => setDogPanelOpen(true)}>
           {dog.name}
@@ -196,6 +190,57 @@ function DogPanel({
           Done
         </button>
       </div>
+    </div>
+  )
+}
+
+function InteractionMenu() {
+  const target = useGameStore((s) => s.hoverTarget)
+  const pinned = useGameStore((s) => s.menuPinned)
+  const isSleeping = useGameStore((s) => s.isSleeping)
+  const currentAction = useGameStore((s) => s.currentAction)
+  const startAction = useGameStore((s) => s.startAction)
+  const wakeDog = useGameStore((s) => s.wakeDog)
+  const closeInteraction = useGameStore((s) => s.closeInteraction)
+
+  if (!target) return null
+
+  const left = Math.min(target.x + 14, window.innerWidth - 200)
+  const top = Math.min(target.y + 14, window.innerHeight - 220)
+
+  return (
+    <div
+      className={`sims-menu ${pinned ? 'pinned' : ''}`}
+      style={{ left, top }}
+      onPointerEnter={holdInteraction}
+      onPointerLeave={hideInteractionSoon}
+    >
+      <div className="sims-menu-title">
+        <span className="sims-diamond" aria-hidden />
+        {target.title}
+      </div>
+      <ul>
+        {target.actions.map((action) => {
+          const meta = ACTION_META[action]
+          const wake = action === 'sleep' && isSleeping
+          return (
+            <li key={action}>
+              <button
+                type="button"
+                disabled={!!currentAction}
+                onClick={() => {
+                  if (wake) wakeDog()
+                  else startAction(action)
+                  closeInteraction()
+                }}
+              >
+                <span>{wake ? '☀️' : meta.icon}</span>
+                {wake ? 'Wake' : meta.label}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }

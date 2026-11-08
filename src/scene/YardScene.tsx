@@ -16,7 +16,7 @@ import {
 
 export function YardScene() {
   const gameMinute = useGameStore((s) => s.gameMinute)
-  const startAction = useGameStore((s) => s.startAction)
+  const closeInteraction = useGameStore((s) => s.closeInteraction)
   const evening = isEvening(gameMinute)
 
   const sky = evening ? '#312e81' : '#7dd3fc'
@@ -28,6 +28,7 @@ export function YardScene() {
       camera={{ position: [8.5, 6.5, 8.5], fov: 42 }}
       shadows
       gl={{ antialias: true }}
+      onPointerMissed={() => closeInteraction()}
     >
       <color attach="background" args={[sky]} />
       <hemisphereLight args={['#fef9c3', '#365314', evening ? 0.35 : 0.55]} />
@@ -59,7 +60,7 @@ export function YardScene() {
       <DogBedProp />
       <TennisBallProp />
       <DogHouseProp />
-      <BatheTubProp onBathe={() => startAction('bathe')} />
+      <BatheTubProp />
       <DogMesh />
     </Canvas>
   )

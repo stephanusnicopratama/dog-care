@@ -10,6 +10,14 @@ import {
 import { loadSave, persistSave } from '../lib/persistence'
 import type { ActionType, Dog, Needs, SaveData } from '../types'
 
+export interface InteractionTarget {
+  id: string
+  title: string
+  actions: ActionType[]
+  x: number
+  y: number
+}
+
 function clampNeed(n: number): number {
   return Math.max(0, Math.min(100, n))
 }
@@ -25,6 +33,8 @@ interface GameState {
   actionEndsAt: number | null
   simPaused: boolean
   dogPanelOpen: boolean
+  hoverTarget: InteractionTarget | null
+  menuPinned: boolean
 
   hydrate: () => void
   save: () => void
@@ -37,6 +47,9 @@ interface GameState {
   tickMinute: () => void
   finishAction: () => void
   wakeDog: () => void
+  setHoverTarget: (target: InteractionTarget | null) => void
+  pinMenu: (pinned: boolean) => void
+  closeInteraction: () => void
 }
 
 function snapshot(state: GameState): SaveData {
@@ -75,6 +88,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   actionEndsAt: null,
   simPaused: false,
   dogPanelOpen: false,
+  hoverTarget: null,
+  menuPinned: false,
 
   hydrate: () => set({ ...loadSave(), currentAction: null, actionEndsAt: null }),
 
@@ -152,6 +167,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ isSleeping: false, currentAction: null, actionEndsAt: null })
     get().save()
   },
+
+  setHoverTarget: (target) => set({ hoverTarget: target }),
+
+  pinMenu: (pinned) => set({ menuPinned: pinned }),
+
+  closeInteraction: () => set({ hoverTarget: null, menuPinned: false }),
 
   tickMinute: () => {
     const state = get()
