@@ -402,6 +402,29 @@ body,
   border-color: #0369a1;
 }
 
+.need-cue {
+  font-size: 1.6rem;
+  line-height: 1;
+  animation: need-cue-bob 0.9s ease-in-out infinite;
+  filter: drop-shadow(0 2px 0 rgba(15, 23, 42, 0.35));
+  user-select: none;
+}
+
+.need-cue.asking {
+  font-size: 2.1rem;
+  animation-duration: 0.45s;
+}
+
+@keyframes need-cue-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
 .asking-badge {
   position: fixed;
   top: 4.5rem;
